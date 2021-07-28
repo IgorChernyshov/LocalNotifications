@@ -35,7 +35,7 @@ final class ViewController: UIViewController {
 		}
 	}
 
-	@objc func scheduleLocal() {
+	@objc func scheduleLocal(isSnooze: Bool) {
 		registerCategories()
 
 		let content = UNMutableNotificationContent()
@@ -48,7 +48,7 @@ final class ViewController: UIViewController {
 		var dateComponents = DateComponents()
 		dateComponents.hour = 10
 		dateComponents.minute = 30
-		let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
+		let trigger = UNTimeIntervalNotificationTrigger(timeInterval: isSnooze ? 3600 : 5, repeats: false)
 //		let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
 
 		let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
@@ -58,7 +58,8 @@ final class ViewController: UIViewController {
 	// MARK: - Notification Actions
 	private func registerCategories() {
 		let show = UNNotificationAction(identifier: "show", title: "Tell me more…", options: .foreground)
-		let category = UNNotificationCategory(identifier: "alarm", actions: [show], intentIdentifiers: [])
+		let snooze = UNNotificationAction(identifier: "snooze", title: "Remind me later", options: .foreground)
+		let category = UNNotificationCategory(identifier: "alarm", actions: [show, snooze], intentIdentifiers: [])
 
 		center.setNotificationCategories([category])
 	}
@@ -70,27 +71,25 @@ extension ViewController: UNUserNotificationCenterDelegate {
 	func userNotificationCenter(_ center: UNUserNotificationCenter,
 								didReceive response: UNNotificationResponse,
 								withCompletionHandler completionHandler: @escaping () -> Void) {
-		// pull out the buried userInfo dictionary
+		defer { completionHandler() }
 		let userInfo = response.notification.request.content.userInfo
 
-		if let customData = userInfo["customData"] as? String {
-			print("Custom data received: \(customData)")
+		guard let customData = userInfo["customData"] as? String else { return }
 
-			switch response.actionIdentifier {
-			case UNNotificationDefaultActionIdentifier:
-				// the user swiped to unlock
-				print("Default identifier")
-
-			case "show":
-				// the user tapped our "show more info…" button
-				print("Show more information…")
-
-			default:
-				break
-			}
+		print("Custom data received: \(customData)")
+		switch response.actionIdentifier {
+		case UNNotificationDefaultActionIdentifier:
+			let alertController = UIAlertController(title: "App started", message: "You've just opened the app", preferredStyle: .alert)
+			alertController.addAction(UIAlertAction(title: "OK", style: .default))
+			present(alertController, animated: UIView.areAnimationsEnabled)
+		case "show":
+			let alertController = UIAlertController(title: "App started", message: "You've tapped Show more info", preferredStyle: .alert)
+			alertController.addAction(UIAlertAction(title: "OK", style: .default))
+			present(alertController, animated: UIView.areAnimationsEnabled)
+		case "snooze":
+			scheduleLocal(isSnooze: true)
+		default:
+			break
 		}
-
-		// you must call the completion handler when you're done
-		completionHandler()
 	}
 }
